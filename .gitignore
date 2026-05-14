@@ -1,0 +1,15 @@
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.pytest_cache/
+.mypy_cache/
+.venv/
+venv/
+env/
+outputs/
+yolov8n.pt
+traffic_video*.mp4
+.DS_Store
+Thumbs.db
+.mp4
