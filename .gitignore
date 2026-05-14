@@ -1,5 +1,19 @@
-*
+# Python cache
+__pycache__/
+*.pyc
 
-!traffic_analyzer.py
-!requirements.txt
-!README.md
+# Videos and outputs
+demo_videos/
+outputs/
+*.mp4
+
+# Model weights
+yolov8n.pt
+
+# IDE
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
