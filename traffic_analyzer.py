@@ -24,7 +24,7 @@ VEHICLE_CLASS_NAMES = {
     5: "bus",
     7: "truck",
 }
-DEFAULT_VIDEO_SOURCE = r"C:\avinya3\traffic_video.mp4"
+DEFAULT_VIDEO_SOURCE = r"C:\avinya3\traffic_video2.mp4"
 
 
 @dataclass
