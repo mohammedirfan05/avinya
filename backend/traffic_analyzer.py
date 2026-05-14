@@ -24,7 +24,7 @@ VEHICLE_CLASS_NAMES = {
     5: "bus",
     7: "truck",
 }
-DEFAULT_VIDEO_SOURCE = r"C:\avinya3\traffic_video2.mp4"
+DEFAULT_VIDEO_SOURCE = r"demo_videos/traffic_video.mp4"
 
 
 @dataclass
@@ -43,7 +43,7 @@ def build_args() -> argparse.Namespace:
         default=DEFAULT_VIDEO_SOURCE,
         help="Video file path, webcam index, or RTSP stream URL. Defaults to C:\\avinya3\\traffic_video.mp4.",
     )
-    parser.add_argument("--model", default="yolov8n.pt", help="Ultralytics YOLO model path or name")
+    parser.add_argument("--model", default="yolo26n.pt", help="Ultralytics YOLO model path or name")
     parser.add_argument("--output", default="", help="Optional output video path. Leave empty to only show overlays live.")
     parser.add_argument("--conf", type=float, default=0.3, help="Detection confidence threshold")
     parser.add_argument("--imgsz", type=int, default=640, help="Inference image size")
