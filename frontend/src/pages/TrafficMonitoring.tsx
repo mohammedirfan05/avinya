@@ -1,8 +1,7 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { motion } from 'framer-motion';
-import { 
-  Camera, 
-  Activity, 
+import React, { useState } from 'react';
+import {
+  Camera,
+  Activity,
   Play,
   Square,
   Car,
@@ -10,44 +9,28 @@ import {
   Bus,
   Bike,
   Upload,
-  Webcam
+  Webcam,
+  Wifi,
+  WifiOff,
+  Clock3,
+  Gauge,
+  RefreshCcw,
+  ArrowRight,
+  ArrowLeftRight,
 } from 'lucide-react';
-import { api, type TrafficStats } from '../services/api';
+import { api } from '../services/api';
+import { useTrafficFeed } from '../hooks/useTrafficFeed';
 
 const TrafficMonitoring = () => {
   const [sourceType, setSourceType] = useState<'webcam' | 'video'>('webcam');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [stats, setStats] = useState<TrafficStats>({
-    total_count: 0,
-    direction_counts: {},
-    class_counts: {}
-  });
-  const [frame, setFrame] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
-  const wsRef = useRef<WebSocket | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    const loadStats = async () => {
-      try {
-        const data = await api.getStats();
-        setStats(data);
-      } catch (e) {
-        console.error('Failed to load stats:', e);
-      }
-    };
-    loadStats();
-  }, []);
-
-  useEffect(() => {
-    return () => {
-      if (wsRef.current) {
-        wsRef.current.close();
-        wsRef.current = null;
-      }
-    };
-  }, []);
+  const { stats, frame, isConnected, isLoading, error, lastUpdateAt, refresh } = useTrafficFeed({
+    mode: 'live',
+    enabled: isAnalyzing,
+  });
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -59,17 +42,11 @@ const TrafficMonitoring = () => {
     try {
       setUploading(true);
       await api.startAnalysis(sourceType, selectedFile || undefined);
+      await refresh();
       setIsAnalyzing(true);
-      setUploading(false);
-      
-      wsRef.current = api.connectWebSocket((data) => {
-        if (data.type === 'update') {
-          setStats(data.stats);
-          setFrame(data.frame);
-        }
-      });
     } catch (e) {
       console.error('Failed to start analysis:', e);
+    } finally {
       setUploading(false);
     }
   };
@@ -78,177 +55,260 @@ const TrafficMonitoring = () => {
     try {
       await api.stopAnalysis();
       setIsAnalyzing(false);
-      setFrame(null);
-      if (wsRef.current) {
-        wsRef.current.close();
-        wsRef.current = null;
-      }
+      await refresh();
     } catch (e) {
       console.error('Failed to stop analysis:', e);
     }
   };
 
+  const classCards = [
+    { key: 'car', label: 'Cars', icon: Car },
+    { key: 'motorcycle', label: 'Motorcycles', icon: Bike },
+    { key: 'bus', label: 'Buses', icon: Bus },
+    { key: 'truck', label: 'Trucks', icon: Truck },
+  ] as const;
+
+  const directionCards = [
+    { key: 'left', label: 'Left', icon: ArrowLeftRight },
+    { key: 'right', label: 'Right', icon: ArrowRight },
+    { key: 'up', label: 'Up', icon: ArrowRight },
+    { key: 'down', label: 'Down', icon: ArrowRight },
+  ] as const;
+
+  const liveMetricCards = [
+    { label: 'Total Tracks', value: stats.total_count, icon: Activity },
+    { label: 'FPS', value: stats.fps?.toFixed(1) ?? '0.0', icon: Gauge },
+    { label: 'Frames Seen', value: stats.processed_frames ?? 0, icon: Clock3 },
+    { label: 'Connections', value: stats.active_connections ?? 0, icon: Wifi },
+  ] as const;
+
+  const liveState = isAnalyzing ? (isConnected ? 'live' : isLoading ? 'connecting' : 'reconnecting') : 'idle';
+
   return (
     <div className="h-[calc(100vh-160px)] flex flex-col gap-6">
-      {/* Top Controls */}
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
-          <h2 className="text-sm font-bold text-primary uppercase tracking-[0.2em] mb-1">Traffic Intelligence</h2>
-          <h1 className="text-3xl font-bold tracking-tight">Real-time Vehicle Detection</h1>
+          <h2 className="text-sm font-medium text-neutral-400 uppercase tracking-widest mb-1">Traffic Intelligence</h2>
+          <h1 className="text-3xl font-semibold tracking-tight">Vehicle Detection</h1>
         </div>
         <div className="flex items-center gap-3">
           {isAnalyzing ? (
-            <button 
+            <button
               onClick={stopAnalysis}
-              className="px-6 py-3 bg-critical-red/20 text-critical-red border border-critical-red/50 rounded-2xl font-bold text-sm flex items-center gap-2 hover:bg-critical-red/30 transition-all"
+              className="px-5 py-2.5 bg-white/15 text-white border border-white/20 rounded-lg font-medium text-sm flex items-center gap-2 hover:bg-white/25 transition-all"
             >
-              <Square size={18} />
-              STOP ANALYSIS
+              <Square size={16} />
+              Stop Live Feed
             </button>
           ) : (
-            <button 
+            <button
               onClick={startAnalysis}
               disabled={sourceType === 'video' && !selectedFile}
-              className="px-6 py-3 bg-primary text-white rounded-2xl font-bold text-sm flex items-center gap-2 hover:bg-primary/90 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-5 py-2.5 bg-primary text-black rounded-lg font-medium text-sm flex items-center gap-2 hover:bg-primary/90 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <Play size={18} />
-              {uploading ? 'UPLOADING...' : 'START ANALYSIS'}
+              <Play size={16} />
+              {uploading ? 'Starting...' : 'Start Live Feed'}
             </button>
           )}
         </div>
       </div>
 
-      {/* Source Toggle */}
-      <div className="glass p-6 rounded-3xl border-white/5">
-        <div className="flex flex-col md:flex-row gap-6 items-start md:items-center">
+      <div className="glass p-5 rounded-xl border-white/5">
+        <div className="flex flex-col md:flex-row gap-5 items-start md:items-center justify-between">
           <div className="flex items-center gap-3">
-            <span className="text-sm font-bold text-slate-400">Source:</span>
-            <div className="flex bg-white/5 rounded-2xl p-1">
+            <span className="text-sm font-medium text-neutral-400">Source:</span>
+            <div className="flex bg-white/5 rounded-lg p-1">
               <button
                 onClick={() => setSourceType('webcam')}
-                className={`px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2 transition-all ${
-                  sourceType === 'webcam' 
-                    ? 'bg-primary text-white' 
-                    : 'text-slate-400 hover:text-white'
+                className={`px-3 py-1.5 rounded-md text-sm font-medium flex items-center gap-2 transition-all ${
+                  sourceType === 'webcam' ? 'bg-primary text-black' : 'text-neutral-400 hover:text-white'
                 }`}
               >
-                <Webcam size={16} />
+                <Webcam size={14} />
                 Webcam
               </button>
               <button
                 onClick={() => setSourceType('video')}
-                className={`px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2 transition-all ${
-                  sourceType === 'video' 
-                    ? 'bg-primary text-white' 
-                    : 'text-slate-400 hover:text-white'
+                className={`px-3 py-1.5 rounded-md text-sm font-medium flex items-center gap-2 transition-all ${
+                  sourceType === 'video' ? 'bg-primary text-black' : 'text-neutral-400 hover:text-white'
                 }`}
               >
-                <Upload size={16} />
+                <Upload size={14} />
                 Upload Video
               </button>
             </div>
           </div>
-          
-          {sourceType === 'video' && (
-            <div className="flex items-center gap-4 flex-1">
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="video/*"
-                onChange={handleFileSelect}
-                className="hidden"
-              />
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                className="px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-sm font-bold flex items-center gap-2 transition-all"
-              >
-                <Upload size={16} />
-                {selectedFile ? selectedFile.name : 'Select Video File'}
-              </button>
-            </div>
-          )}
+
+          <div className="flex flex-wrap items-center gap-3">
+            <span
+              className={cn(
+                'text-xs font-medium px-2.5 py-1 rounded-full flex items-center gap-2',
+                liveState === 'live'
+                  ? 'bg-emerald-500/15 text-emerald-300'
+                  : liveState === 'connecting'
+                    ? 'bg-amber-500/15 text-amber-300'
+                    : liveState === 'reconnecting'
+                      ? 'bg-rose-500/15 text-rose-300'
+                      : 'bg-neutral-600/20 text-neutral-400',
+              )}
+            >
+              {liveState === 'live' ? <Wifi size={12} /> : <WifiOff size={12} />}
+              {liveState === 'live' ? 'Live' : liveState === 'connecting' ? 'Connecting' : liveState === 'reconnecting' ? 'Reconnecting' : 'Idle'}
+            </span>
+            <button
+              onClick={() => void refresh()}
+              className="px-3 py-1.5 rounded-lg border border-white/10 bg-white/5 text-xs font-medium text-neutral-300 hover:bg-white/10 transition-all flex items-center gap-2"
+            >
+              <RefreshCcw size={12} />
+              Sync stats
+            </button>
+          </div>
         </div>
+
+        {sourceType === 'video' && (
+          <div className="mt-4 flex items-center gap-4 flex-1">
+            <input ref={fileInputRef} type="file" accept="video/*" onChange={handleFileSelect} className="hidden" />
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              className="px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-sm font-medium flex items-center gap-2 transition-all"
+            >
+              <Upload size={14} />
+              {selectedFile ? selectedFile.name : 'Select Video'}
+            </button>
+          </div>
+        )}
       </div>
 
-      {/* Main Grid */}
-      <div className="flex-1 grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left: Live Feed */}
-        <div className="lg:col-span-2 space-y-6">
-          <div className="glass p-6 rounded-3xl border-white/5">
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+        {liveMetricCards.map((card) => (
+          <div key={card.label} className="glass p-4 rounded-xl border-white/5">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-bold flex items-center gap-2">
-                <Camera className="text-primary" size={20} />
+              <span className="text-xs uppercase tracking-[0.2em] text-neutral-500">{card.label}</span>
+              <card.icon size={16} className="text-primary" />
+            </div>
+            <div className="text-2xl font-semibold tabular-nums text-white">{card.value}</div>
+          </div>
+        ))}
+      </div>
+
+      <div className="flex-1 grid grid-cols-1 xl:grid-cols-3 gap-6">
+        <div className="xl:col-span-2 space-y-6">
+          <div className="glass p-5 rounded-xl border-white/5">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-base font-medium flex items-center gap-2">
+                <Camera className="text-primary" size={18} />
                 {sourceType === 'webcam' ? 'Camera Feed' : 'Video Feed'}
               </h3>
-              <span className={cn(
-                "text-xs font-bold px-3 py-1 rounded-full",
-                isAnalyzing ? "bg-traffic-green/20 text-traffic-green" : "bg-slate-600/20 text-slate-400"
-              )}>
-                {isAnalyzing ? "LIVE" : "OFFLINE"}
-              </span>
+              <div className="flex items-center gap-3 text-xs text-neutral-400">
+                <span>{stats.source}</span>
+                <span>Updated {lastUpdateAt ? new Date(lastUpdateAt).toLocaleTimeString() : 'just now'}</span>
+              </div>
             </div>
-            <div className="aspect-video bg-slate-900 rounded-2xl overflow-hidden border border-white/10 flex items-center justify-center">
+            <div className="aspect-video bg-neutral-950 rounded-lg overflow-hidden border border-white/10 flex items-center justify-center">
               {frame ? (
-                <img src={frame} alt="Live Traffic" className="w-full h-full object-cover" />
+                <img src={frame} alt="Live traffic analysis feed" className="w-full h-full object-cover" />
               ) : (
-                <div className="text-center text-slate-500">
-                  <Camera size={64} className="mx-auto mb-4 opacity-50" />
-                  <p className="text-lg mb-2">
-                    {sourceType === 'webcam' 
-                      ? 'Start analysis to view camera feed' 
-                      : 'Select a video file and start analysis'}
+                <div className="text-center text-neutral-500 px-6">
+                  <Camera size={48} className="mx-auto mb-3 opacity-50" />
+                  <p className="text-base mb-1">
+                    {isAnalyzing
+                      ? 'Waiting for the first live frame'
+                      : sourceType === 'webcam'
+                        ? 'Start analysis to view camera feed'
+                        : 'Select a video file and start analysis'}
                   </p>
-                  <p className="text-sm">
-                    {sourceType === 'video' && !selectedFile && 'Please select a video file first'}
-                  </p>
+                  <p className="text-sm text-neutral-600">{error ? error : 'Low-latency analysis updates will stream here.'}</p>
                 </div>
               )}
             </div>
           </div>
-        </div>
 
-        {/* Right: Detection Stats */}
-        <div className="lg:col-span-1 space-y-6">
-          <div className="glass p-6 rounded-3xl border-white/5">
-            <h3 className="text-lg font-bold flex items-center gap-2 mb-6">
-              <Activity className="text-purple-glow" size={20} />
-              Detection Statistics
-            </h3>
-            <div className="space-y-4">
-              <div className="bg-white/5 p-4 rounded-2xl">
-                <div className="flex items-center gap-2 mb-2">
-                  <Car className="text-primary" size={18} />
-                  <span className="text-xs font-bold text-slate-400 uppercase">Cars</span>
-                </div>
-                <p className="text-2xl font-bold">{stats.class_counts.car || 0}</p>
-              </div>
-              <div className="bg-white/5 p-4 rounded-2xl">
-                <div className="flex items-center gap-2 mb-2">
-                  <Bike className="text-warning-yellow" size={18} />
-                  <span className="text-xs font-bold text-slate-400 uppercase">Motorcycles</span>
-                </div>
-                <p className="text-2xl font-bold">{stats.class_counts.motorcycle || 0}</p>
-              </div>
-              <div className="bg-white/5 p-4 rounded-2xl">
-                <div className="flex items-center gap-2 mb-2">
-                  <Bus className="text-traffic-green" size={18} />
-                  <span className="text-xs font-bold text-slate-400 uppercase">Buses</span>
-                </div>
-                <p className="text-2xl font-bold">{stats.class_counts.bus || 0}</p>
-              </div>
-              <div className="bg-white/5 p-4 rounded-2xl">
-                <div className="flex items-center gap-2 mb-2">
-                  <Truck className="text-critical-red" size={18} />
-                  <span className="text-xs font-bold text-slate-400 uppercase">Trucks</span>
-                </div>
-                <p className="text-2xl font-bold">{stats.class_counts.truck || 0}</p>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="glass p-5 rounded-xl border-white/5">
+              <h3 className="text-base font-medium flex items-center gap-2 mb-5">
+                <Activity className="text-accent-glow" size={18} />
+                Vehicle Mix
+              </h3>
+              <div className="space-y-3">
+                {classCards.map((card) => {
+                  const value = stats.class_counts[card.key] || 0;
+                  const maxValue = Math.max(...classCards.map((item) => stats.class_counts[item.key] || 0), 1);
+                  const percentage = (value / maxValue) * 100;
+                  return (
+                    <div key={card.key} className="space-y-1.5">
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="flex items-center gap-2 text-neutral-300">
+                          <card.icon size={14} className="text-primary" />
+                          {card.label}
+                        </span>
+                        <span className="font-medium tabular-nums">{value}</span>
+                      </div>
+                      <div className="h-2 bg-white/5 rounded-full overflow-hidden">
+                        <div className="h-full bg-gradient-to-r from-primary to-accent-glow rounded-full" style={{ width: `${percentage}%` }} />
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
-            <div className="mt-6 pt-6 border-t border-white/5">
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-slate-400">Total Vehicles</span>
-                <span className="text-3xl font-bold text-primary">{stats.total_count}</span>
+
+            <div className="glass p-5 rounded-xl border-white/5">
+              <h3 className="text-base font-medium flex items-center gap-2 mb-5">
+                <ArrowLeftRight className="text-accent-glow" size={18} />
+                Movement Direction
+              </h3>
+              <div className="space-y-3">
+                {directionCards.map((card) => {
+                  const value = stats.direction_counts[card.key] || 0;
+                  return (
+                    <div key={card.key} className="flex items-center justify-between bg-white/5 px-3 py-2.5 rounded-lg">
+                      <span className="flex items-center gap-2 text-sm text-neutral-300">
+                        <card.icon size={14} className="text-primary" />
+                        {card.label}
+                      </span>
+                      <span className="text-sm font-semibold tabular-nums">{value}</span>
+                    </div>
+                  );
+                })}
               </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="space-y-6">
+          <div className="glass p-5 rounded-xl border-white/5">
+            <h3 className="text-base font-medium flex items-center gap-2 mb-5">
+              <Gauge className="text-primary" size={18} />
+              Performance
+            </h3>
+            <div className="space-y-3 text-sm text-neutral-300">
+              <div className="flex items-center justify-between bg-white/5 p-3 rounded-lg">
+                <span>Running</span>
+                <span className={stats.running ? 'text-emerald-300' : 'text-neutral-500'}>{stats.running ? 'Yes' : 'No'}</span>
+              </div>
+              <div className="flex items-center justify-between bg-white/5 p-3 rounded-lg">
+                <span>Backend FPS</span>
+                <span className="tabular-nums">{stats.fps?.toFixed(1) ?? '0.0'}</span>
+              </div>
+              <div className="flex items-center justify-between bg-white/5 p-3 rounded-lg">
+                <span>Connections</span>
+                <span className="tabular-nums">{stats.active_connections ?? 0}</span>
+              </div>
+              <div className="flex items-center justify-between bg-white/5 p-3 rounded-lg">
+                <span>Source</span>
+                <span className="capitalize">{stats.source || sourceType}</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="glass p-5 rounded-xl border-white/5">
+            <h3 className="text-base font-medium flex items-center gap-2 mb-5">
+              <Activity className="text-primary" size={18} />
+              Live Summary
+            </h3>
+            <div className="space-y-3 text-sm text-neutral-300">
+              <p>Live feed status updates are now streamed from the backend websocket.</p>
+              <p className="text-neutral-500">This reduces polling overhead and keeps the feed synchronized with the latest analyzer state.</p>
             </div>
           </div>
         </div>
@@ -257,7 +317,7 @@ const TrafficMonitoring = () => {
   );
 };
 
-function cn(...inputs: any[]) {
+function cn(...inputs: Array<string | false | null | undefined>) {
   return inputs.filter(Boolean).join(' ');
 }
 

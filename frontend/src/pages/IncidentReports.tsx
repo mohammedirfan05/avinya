@@ -1,213 +1,265 @@
-import { useState } from 'react';
-import { motion } from 'framer-motion';
-import { 
-  AlertTriangle, 
-  Car, 
-  ShieldAlert, 
-  Filter, 
-  Search, 
-  Download, 
-  ChevronRight,
-  MoreVertical,
-  CheckCircle2,
-  Clock,
+import React, { useState } from 'react';
+import {
+  Filter,
+  Search,
+  Download,
+  Plus,
   MapPin,
-  Camera,
+  AlertTriangle,
+  Clock,
+  ChevronDown,
 } from 'lucide-react';
-import { cn } from '../lib/utils';
+import { useIncidents } from '../hooks/useIncidents';
+import { MapboxMap } from '../components/MapboxMap';
+import { IncidentReportForm } from '../components/IncidentReportForm';
+import type { IncidentType, Severity, IncidentStatus } from '../services/api';
 
-const incidents = [
-  { id: 'INC-8821', type: 'Major Accident', location: 'Silk Board Flyover', time: '12 mins ago', severity: 'Critical', status: 'Responding', junction: 'Node 4A' },
-  { id: 'INC-8820', type: 'Signal Jump', location: 'Indiranagar 100ft', time: '24 mins ago', severity: 'Medium', status: 'Logged', junction: 'Node 12C' },
-  { id: 'INC-8819', type: 'Wrong Way', location: 'Airport Road', time: '45 mins ago', severity: 'High', status: 'Alert Sent', junction: 'Node 2B' },
-  { id: 'INC-8818', type: 'Stalled Vehicle', location: 'Hebbal Node', time: '1 hour ago', severity: 'Low', status: 'Cleared', junction: 'Node 7D' },
-  { id: 'INC-8817', type: 'Illegal Parking', location: 'MG Road', time: '1.5 hours ago', severity: 'Low', status: 'Logged', junction: 'Node 1A' },
-  { id: 'INC-8816', type: 'Overspeeding', location: 'Electronic City', time: '2 hours ago', severity: 'Medium', status: 'Logged', junction: 'Node 9F' },
-];
+const SEVERITY_DOT: Record<string, string> = {
+  low: 'bg-emerald-400',
+  medium: 'bg-amber-400',
+  high: 'bg-orange-400',
+  critical: 'bg-rose-400',
+};
 
-const IncidentReports = () => {
-  const [filter, setFilter] = useState('All');
+const STATUS_BADGE: Record<string, string> = {
+  reported: 'bg-blue-500/15 text-blue-300',
+  verified: 'bg-indigo-500/15 text-indigo-300',
+  in_progress: 'bg-amber-500/15 text-amber-300',
+  resolved: 'bg-emerald-500/15 text-emerald-300',
+};
+
+const INCIDENT_ICONS: Record<string, string> = {
+  pothole: '🕳️',
+  accident: '💥',
+  congestion: '🚗',
+  road_closure: '🚧',
+  flooding: '🌊',
+};
+
+const IncidentReports: React.FC = () => {
+  const { incidents, isLoading, error, createIncident, updateStatus } = useIncidents({ autoRefreshMs: 10000 });
+  const [showForm, setShowForm] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filterType, setFilterType] = useState<IncidentType | ''>('');
+  const [filterSeverity, setFilterSeverity] = useState<Severity | ''>('');
+  const [showFilters, setShowFilters] = useState(false);
+
+  // Client-side filtering (backend is already filtered via store)
+  const filtered = incidents.filter((inc) => {
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase();
+      if (
+        !inc.description?.toLowerCase().includes(q) &&
+        !inc.incident_type.includes(q) &&
+        !inc.severity.includes(q) &&
+        !inc.id.includes(q)
+      ) return false;
+    }
+    if (filterType && inc.incident_type !== filterType) return false;
+    if (filterSeverity && inc.severity !== filterSeverity) return false;
+    return true;
+  });
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-end justify-between">
+      <div className="flex items-end justify-between flex-wrap gap-4">
         <div>
-          <h2 className="text-sm font-bold text-critical-red uppercase tracking-[0.2em] mb-1">Violation Monitoring</h2>
-          <h1 className="text-4xl font-bold tracking-tight">Incident Intelligence</h1>
+          <h2 className="text-xs font-medium text-neutral-400 uppercase tracking-[0.2em] mb-1">Violation Monitoring</h2>
+          <h1 className="text-3xl font-semibold tracking-tight text-white">Incident Reports</h1>
         </div>
-        
-        <div className="flex items-center gap-4">
-          <div className="relative group">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-primary transition-colors" size={18} />
-            <input 
-              type="text" 
-              placeholder="Search by ID or Location..." 
-              className="bg-white/5 border border-border rounded-xl pl-10 pr-4 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary/50 w-64 transition-all"
+
+        <div className="flex items-center gap-3">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500" size={16} />
+            <input
+              type="text"
+              placeholder="Search incidents..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="bg-white/5 border border-white/10 rounded-lg pl-9 pr-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-white/20 w-64 transition-all text-white placeholder-neutral-500"
             />
           </div>
-          <button className="flex items-center gap-2 px-4 py-2 bg-white/5 border border-border rounded-xl text-xs font-bold hover:bg-white/10 transition-all">
-            <Filter size={16} />
-            FILTERS
+          <button
+            onClick={() => setShowFilters(!showFilters)}
+            className={`flex items-center gap-2 px-3 py-2 border rounded-lg text-xs font-medium transition-all ${
+              showFilters ? 'bg-white/10 border-white/20 text-white' : 'bg-white/5 border-white/10 text-neutral-300 hover:bg-white/10'
+            }`}
+          >
+            <Filter size={14} />
+            Filters
+            <ChevronDown size={12} className={`transition-transform ${showFilters ? 'rotate-180' : ''}`} />
           </button>
-          <button className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-xs font-bold shadow-lg shadow-primary/20 hover:shadow-primary/40 transition-all">
-            <Download size={16} />
-            EXPORT DATA
+          <button
+            onClick={() => setShowForm(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-white text-black rounded-lg text-xs font-semibold hover:bg-neutral-200 transition-all"
+          >
+            <Plus size={14} />
+            Report Incident
           </button>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-        {/* Left: Summary Cards */}
-        <div className="space-y-6">
-          <div className="glass p-6 rounded-3xl border-white/5 space-y-6">
-            <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest">Active Alerts</h3>
-            <div className="space-y-4">
-              {[
-                { label: 'Critical', count: 0, color: 'text-critical-red', bg: 'bg-critical-red/10' },
-                { label: 'High', count: 4, color: 'text-warning-yellow', bg: 'bg-warning-yellow/10' },
-                { label: 'Medium', count: 12, color: 'text-primary', bg: 'bg-primary/10' },
-                { label: 'Low', count: 28, color: 'text-slate-400', bg: 'bg-white/5' },
-              ].map((item, i) => (
-                <div key={i} className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className={cn("w-2 h-2 rounded-full", item.color.replace('text', 'bg'))} />
-                    <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">{item.label}</span>
-                  </div>
-                  <span className={cn("text-xs font-bold px-2 py-0.5 rounded", item.bg, item.color)}>{item.count}</span>
-                </div>
-              ))}
-            </div>
+      {/* Filters */}
+      {showFilters && (
+        <div className="glass rounded-xl border-white/5 p-4 flex flex-wrap items-center gap-4">
+          <div>
+            <label className="block text-[10px] font-medium text-neutral-500 uppercase tracking-wider mb-1">Type</label>
+            <select
+              value={filterType}
+              onChange={(e) => setFilterType(e.target.value as IncidentType | '')}
+              className="bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:ring-1 focus:ring-white/20"
+            >
+              <option value="">All Types</option>
+              <option value="pothole">Pothole</option>
+              <option value="accident">Accident</option>
+              <option value="congestion">Congestion</option>
+              <option value="road_closure">Road Closure</option>
+              <option value="flooding">Flooding</option>
+            </select>
           </div>
+          <div>
+            <label className="block text-[10px] font-medium text-neutral-500 uppercase tracking-wider mb-1">Severity</label>
+            <select
+              value={filterSeverity}
+              onChange={(e) => setFilterSeverity(e.target.value as Severity | '')}
+              className="bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:ring-1 focus:ring-white/20"
+            >
+              <option value="">All Severities</option>
+              <option value="low">Low</option>
+              <option value="medium">Medium</option>
+              <option value="high">High</option>
+              <option value="critical">Critical</option>
+            </select>
+          </div>
+          <div className="text-xs text-neutral-500 ml-auto">
+            {filtered.length} incident{filtered.length !== 1 ? 's' : ''} found
+          </div>
+        </div>
+      )}
 
-          <div className="glass p-6 rounded-3xl border-white/5">
-            <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-6">AI Vision Status</h3>
-            <div className="space-y-6">
-              {[
-                { label: 'License Detection', value: 99.4 },
-                { label: 'Vehicle Class', value: 98.2 },
-                { label: 'Lane Tracking', value: 96.5 },
-              ].map((item, i) => (
-                <div key={i} className="space-y-2">
-                  <div className="flex justify-between text-[10px] font-bold uppercase tracking-widest">
-                    <span className="text-slate-500">{item.label}</span>
-                    <span className="text-primary">{item.value}%</span>
-                  </div>
-                  <div className="w-full h-1 bg-white/5 rounded-full overflow-hidden">
-                    <motion.div 
-                      initial={{ width: 0 }}
-                      animate={{ width: `${item.value}%` }}
-                      className="h-full bg-primary rounded-full"
-                    />
-                  </div>
-                </div>
-              ))}
+      {/* Main Grid: Map + Table */}
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+        {/* Map */}
+        <div className="xl:col-span-1">
+          <div className="glass rounded-xl border-white/5 overflow-hidden">
+            <div className="p-4 border-b border-white/5 flex items-center justify-between">
+              <h3 className="text-sm font-medium flex items-center gap-2 text-white">
+                <MapPin className="text-primary" size={16} />
+                Live Incident Map
+              </h3>
+              <span className="text-[10px] text-neutral-500">{filtered.length} incidents</span>
+            </div>
+            <div className="h-[400px]">
+              <MapboxMap compact />
             </div>
           </div>
         </div>
 
-        {/* Right: Incident Table */}
-        <div className="lg:col-span-3 space-y-6">
-          <div className="flex gap-4">
-            {['All', 'Critical', 'High', 'Resolved'].map((tab) => (
-              <button
-                key={tab}
-                onClick={() => setFilter(tab)}
-                className={cn(
-                  "px-6 py-2 rounded-xl text-xs font-bold transition-all border",
-                  filter === tab 
-                    ? "bg-primary/10 border-primary/50 text-primary" 
-                    : "bg-transparent border-transparent text-slate-500 hover:text-white"
-                )}
-              >
-                {tab.toUpperCase()}
+        {/* Table */}
+        <div className="xl:col-span-2">
+          <div className="glass rounded-xl border-white/5 overflow-hidden">
+            <div className="p-4 border-b border-white/5 flex items-center justify-between">
+              <h3 className="text-sm font-medium text-white">Recent Incidents</h3>
+              <button className="flex items-center gap-1.5 text-xs text-neutral-400 hover:text-white transition-colors">
+                <Download size={12} />
+                Export
               </button>
-            ))}
-          </div>
-
-          <div className="glass rounded-3xl border-white/5 overflow-hidden">
-            <table className="w-full text-left">
-              <thead>
-                <tr className="border-b border-white/5 bg-white/5">
-                  <th className="px-6 py-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest">Incident Details</th>
-                  <th className="px-6 py-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest">Location / Node</th>
-                  <th className="px-6 py-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest">Severity</th>
-                  <th className="px-6 py-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest">Status</th>
-                  <th className="px-6 py-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest text-right">Action</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-white/5">
-                {incidents.map((inc) => (
-                  <motion.tr 
-                    key={inc.id}
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    whileHover={{ backgroundColor: 'rgba(255,255,255,0.02)' }}
-                    className="group transition-all"
-                  >
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-4">
-                        <div className={cn(
-                          "w-10 h-10 rounded-xl flex items-center justify-center",
-                          inc.severity === 'Critical' ? 'bg-critical-red/10 text-critical-red shadow-[0_0_15px_rgba(239,68,68,0.2)]' : 'bg-white/5 text-slate-400'
-                        )}>
-                          {inc.severity === 'Critical' ? <ShieldAlert size={20} /> : <Car size={20} />}
-                        </div>
-                        <div>
-                          <p className="text-sm font-bold">{inc.type}</p>
-                          <p className="text-[10px] font-mono text-slate-500 uppercase tracking-widest">{inc.id} • {inc.time}</p>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex flex-col">
-                        <span className="text-sm font-medium text-slate-300">{inc.location}</span>
-                        <span className="text-[10px] text-primary font-bold">{inc.junction}</span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className={cn(
-                        "text-[10px] font-bold px-2 py-1 rounded-lg uppercase tracking-widest",
-                        inc.severity === 'Critical' ? "bg-critical-red/20 text-critical-red" :
-                        inc.severity === 'High' ? "bg-warning-yellow/20 text-warning-yellow" : "bg-primary/20 text-primary"
-                      )}>
-                        {inc.severity}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-2">
-                        {inc.status === 'Cleared' ? <CheckCircle2 size={14} className="text-traffic-green" /> : <Clock size={14} className="text-slate-500" />}
-                        <span className="text-xs font-medium text-slate-400">{inc.status}</span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <button className="p-2 hover:bg-white/10 rounded-lg text-slate-500 hover:text-white transition-all">
-                          <Camera size={16} />
-                        </button>
-                        <button className="p-2 hover:bg-white/10 rounded-lg text-slate-500 hover:text-white transition-all">
-                          <MapPin size={16} />
-                        </button>
-                        <button className="p-2 hover:bg-white/10 rounded-lg text-slate-500 hover:text-white transition-all">
-                          <MoreVertical size={16} />
-                        </button>
-                      </div>
-                    </td>
-                  </motion.tr>
-                ))}
-              </tbody>
-            </table>
-            
-            <div className="p-4 border-t border-white/5 flex items-center justify-between bg-white/5">
-              <span className="text-xs text-slate-500">Showing 6 of 142 total incidents detected today</span>
-              <div className="flex gap-2">
-                <button className="px-3 py-1 bg-white/5 border border-white/10 rounded-lg text-[10px] font-bold text-slate-400 hover:text-white transition-all">PREVIOUS</button>
-                <button className="px-3 py-1 bg-white/5 border border-white/10 rounded-lg text-[10px] font-bold text-slate-400 hover:text-white transition-all">NEXT</button>
-              </div>
             </div>
+
+            {error && (
+              <div className="px-4 py-2 bg-rose-500/10 text-xs text-rose-300 border-b border-rose-500/10">
+                {error}
+              </div>
+            )}
+
+            {isLoading && filtered.length === 0 ? (
+              <div className="p-8 text-center text-neutral-500 text-sm">Loading incidents...</div>
+            ) : filtered.length === 0 ? (
+              <div className="p-8 text-center text-neutral-500 text-sm">No incidents match your filters</div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-white/5 text-left">
+                      <th className="px-4 py-3 text-[10px] font-semibold text-neutral-500 uppercase tracking-wider">Type</th>
+                      <th className="px-4 py-3 text-[10px] font-semibold text-neutral-500 uppercase tracking-wider">Severity</th>
+                      <th className="px-4 py-3 text-[10px] font-semibold text-neutral-500 uppercase tracking-wider">Location</th>
+                      <th className="px-4 py-3 text-[10px] font-semibold text-neutral-500 uppercase tracking-wider">Description</th>
+                      <th className="px-4 py-3 text-[10px] font-semibold text-neutral-500 uppercase tracking-wider">Status</th>
+                      <th className="px-4 py-3 text-[10px] font-semibold text-neutral-500 uppercase tracking-wider">Time</th>
+                      <th className="px-4 py-3 text-[10px] font-semibold text-neutral-500 uppercase tracking-wider">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filtered.map((inc) => (
+                      <tr key={inc.id} className="border-b border-white/[0.03] hover:bg-white/[0.03] transition-colors">
+                        <td className="px-4 py-3">
+                          <span className="flex items-center gap-2">
+                            <span>{INCIDENT_ICONS[inc.incident_type] || '⚠️'}</span>
+                            <span className="capitalize text-neutral-200 text-xs">
+                              {inc.incident_type.replace('_', ' ')}
+                            </span>
+                          </span>
+                        </td>
+                        <td className="px-4 py-3">
+                          <span className="flex items-center gap-1.5">
+                            <span className={`w-2 h-2 rounded-full ${SEVERITY_DOT[inc.severity]}`} />
+                            <span className="capitalize text-xs text-neutral-300">{inc.severity}</span>
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-[11px] text-neutral-400 tabular-nums">
+                          {inc.latitude.toFixed(4)}, {inc.longitude.toFixed(4)}
+                        </td>
+                        <td className="px-4 py-3 text-xs text-neutral-400 max-w-[200px] truncate">
+                          {inc.description || '—'}
+                        </td>
+                        <td className="px-4 py-3">
+                          <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full capitalize ${STATUS_BADGE[inc.status] || 'bg-neutral-500/15 text-neutral-300'}`}>
+                            {inc.status.replace('_', ' ')}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-[11px] text-neutral-500">
+                          <span className="flex items-center gap-1">
+                            <Clock size={10} />
+                            {new Date(inc.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3">
+                          {inc.status !== 'resolved' && (
+                            <select
+                              value=""
+                              onChange={(e) => {
+                                if (e.target.value) updateStatus(inc.id, e.target.value as IncidentStatus);
+                              }}
+                              className="bg-white/5 border border-white/10 rounded text-[10px] text-neutral-400 px-1.5 py-0.5 focus:outline-none"
+                            >
+                              <option value="">Update...</option>
+                              <option value="verified">Verify</option>
+                              <option value="in_progress">In Progress</option>
+                              <option value="resolved">Resolve</option>
+                            </select>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         </div>
       </div>
+
+      {/* Report Form Modal */}
+      {showForm && (
+        <IncidentReportForm
+          onSubmit={async (payload) => {
+            await createIncident(payload);
+          }}
+          onClose={() => setShowForm(false)}
+        />
+      )}
     </div>
   );
 };

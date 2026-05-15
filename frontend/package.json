@@ -11,15 +11,18 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@types/mapbox-gl": "^3.4.1",
     "autoprefixer": "^10.4.20",
     "clsx": "^2.1.1",
     "framer-motion": "^12.38.0",
     "leaflet": "^1.9.4",
     "lucide-react": "^1.14.0",
+    "mapbox-gl": "^3.23.1",
     "postcss": "^8.4.49",
     "react": "^19.2.6",
     "react-dom": "^19.2.6",
     "react-leaflet": "^5.0.0",
+    "react-map-gl": "^8.1.1",
     "react-router-dom": "^7.15.0",
     "recharts": "^3.8.1",
     "socket.io-client": "^4.8.3",

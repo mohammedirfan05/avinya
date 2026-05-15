@@ -1,4 +1,4 @@
-# Python cache
+# ─── Python Cache ─────────────────────────────────────────────────────────────
 __pycache__/
 *.pyc
 *.pyo
@@ -7,14 +7,14 @@ __pycache__/
 *.dll
 *.exe
 
-# Virtual environment
+# ─── Virtual Environment ──────────────────────────────────────────────────────
 venv/
 env/
 .venv/
 .env/
 virtualenv/
 
-# Uploaded videos and media
+# ─── Uploaded Videos & Media ──────────────────────────────────────────────────
 uploads/
 demo_videos/
 outputs/
@@ -27,25 +27,27 @@ outputs/
 *.jpeg
 *.png
 *.gif
+*.bmp
 
-# Model weights
+# ─── ML Model Weights ─────────────────────────────────────────────────────────
 *.pt
 *.pth
 *.onnx
 *.engine
+*.weights
 
-# IDE
+# ─── IDE ──────────────────────────────────────────────────────────────────────
 .vscode/
 .idea/
 *.swp
 *.swo
 *~
 
-# OS files
+# ─── OS Files ─────────────────────────────────────────────────────────────────
 .DS_Store
 Thumbs.db
 
-# Environment variables
+# ─── Environment / Secrets ────────────────────────────────────────────────────
 .env
 .env.local
 .env.*.local

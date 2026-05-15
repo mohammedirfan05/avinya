@@ -1,5 +1,4 @@
-# Root-level gitignore
-# Python
+# ─── Python ───────────────────────────────────────────────────────────────────
 __pycache__/
 *.pyc
 *.pyo
@@ -8,14 +7,27 @@ __pycache__/
 *.dll
 *.exe
 
-# Virtual environments
+# ─── Virtual Environments ─────────────────────────────────────────────────────
 venv/
 env/
 .venv/
 .env/
 virtualenv/
 
-# Videos and media files
+# ─── Node / Frontend ──────────────────────────────────────────────────────────
+node_modules/
+dist/
+dist-ssr/
+*.local
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+logs/
+*.log
+
+# ─── Videos & Media ───────────────────────────────────────────────────────────
 *.mp4
 *.avi
 *.mov
@@ -27,25 +39,37 @@ virtualenv/
 *.gif
 *.bmp
 
-# Model weights
+# ─── ML Model Weights ─────────────────────────────────────────────────────────
 *.pt
 *.pth
 *.onnx
 *.engine
 *.weights
 
-# IDE
+# ─── Backend Runtime Dirs ─────────────────────────────────────────────────────
+backend/uploads/
+backend/demo_videos/
+backend/outputs/
+
+# ─── IDE ──────────────────────────────────────────────────────────────────────
 .vscode/
 .idea/
 *.swp
 *.swo
 *~
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
 
-# OS files
+# ─── OS ───────────────────────────────────────────────────────────────────────
 .DS_Store
 Thumbs.db
 
-# Environment variables
+# ─── Environment / Secrets ────────────────────────────────────────────────────
 .env
 .env.local
 .env.*.local
+
+# ─── Internal / Scratch files ─────────────────────────────────────────────────
+skill.md

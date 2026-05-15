@@ -1,192 +1,141 @@
-import { 
-  TrendingUp, 
-  Brain, 
-  Target, 
-  ArrowUpRight, 
-  ArrowDownRight,
-  Calendar,
-  Activity,
-  ChevronRight,
-  AlertTriangle
-} from 'lucide-react';
-import { 
-  AreaChart, 
-  Area, 
-  XAxis, 
-  YAxis, 
-  CartesianGrid, 
-  Tooltip, 
-  ResponsiveContainer,
-  Radar,
-  RadarChart,
-  PolarGrid,
-  PolarAngleAxis,
-  PolarRadiusAxis,
-} from 'recharts';
-
-const radarData = [
-  { subject: 'Accuracy', A: 98, fullMark: 100 },
-  { subject: 'Latency', A: 92, fullMark: 100 },
-  { subject: 'Throughput', A: 85, fullMark: 100 },
-  { subject: 'Reliability', A: 95, fullMark: 100 },
-  { subject: 'Efficiency', A: 88, fullMark: 100 },
-];
-
-const forecastData = [
-  { time: '08:00', actual: 850, predicted: 820 },
-  { time: '10:00', actual: 720, predicted: 740 },
-  { time: '12:00', actual: 680, predicted: 670 },
-  { time: '14:00', actual: 710, predicted: 730 },
-  { time: '16:00', actual: 950, predicted: 920 },
-  { time: '18:00', actual: 1100, predicted: 1080 },
-  { time: '20:00', predicted: 850 },
-  { time: '22:00', predicted: 600 },
-];
+import { Calendar, Activity, RefreshCcw, Wifi, Gauge, ArrowRightLeft } from 'lucide-react';
+import { motion } from 'framer-motion';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { Card, KpiCard } from '../components/ui';
+import { useTrafficFeed } from '../hooks/useTrafficFeed';
 
 const Analytics = () => {
+  const { stats, lastUpdateAt, refresh, isLoading, error } = useTrafficFeed({ mode: 'snapshot' });
+
+  const classData = Object.entries(stats.class_counts || {}).map(([name, value]) => ({ name, traffic: value }));
+  const directionData = ['left', 'right', 'up', 'down'].map((name) => ({ name, value: stats.direction_counts?.[name] || 0 }));
+
+  const metricCards = [
+    { label: 'Tracked Vehicles', value: String(stats.total_count ?? 0), icon: <Activity size={18} />, tone: 'neutral' as const },
+    { label: 'Stream FPS', value: stats.fps?.toFixed(1) ?? '0.0', icon: <Gauge size={18} />, tone: 'success' as const },
+    { label: 'Active Links', value: String(stats.active_connections ?? 0), icon: <Wifi size={18} />, tone: 'warning' as const },
+    { label: 'Source', value: stats.source ?? 'webcam', icon: <ArrowRightLeft size={18} />, tone: 'danger' as const },
+  ] as const;
+
   return (
-    <div className="space-y-8">
-      {/* Header */}
-      <div className="flex items-end justify-between">
+    <div className="space-y-6">
+      <div className="flex items-end justify-between gap-4 flex-wrap">
         <div>
-          <h2 className="text-sm font-bold text-purple-glow uppercase tracking-[0.2em] mb-1">Advanced Intelligence</h2>
-          <h1 className="text-4xl font-bold tracking-tight">AI Insights & Forecasting</h1>
+          <h2 className="text-sm font-medium text-slate-400 uppercase tracking-widest mb-1">Advanced Intelligence</h2>
+          <h1 className="text-3xl font-semibold tracking-tight">Analytics</h1>
         </div>
-        
-        <div className="flex items-center gap-4">
-          <div className="flex bg-white/5 border border-border p-1 rounded-xl">
-            <button className="px-4 py-2 bg-primary text-white rounded-lg text-xs font-bold shadow-lg shadow-primary/20">PREDICTIVE</button>
-            <button className="px-4 py-2 text-slate-500 hover:text-white rounded-lg text-xs font-bold transition-all">HISTORICAL</button>
-          </div>
-          <button className="p-3 glass rounded-xl hover:bg-white/10 transition-all text-slate-400 hover:text-white">
-            <Calendar size={20} />
+
+        <div className="flex items-center gap-3 text-sm text-slate-400">
+          <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-slate-200">
+            <Wifi size={14} />
+            {stats.running ? 'Live stream' : 'Snapshot view'}
+          </span>
+          <button
+            onClick={() => void refresh()}
+            className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-slate-200 hover:bg-white/10 transition-colors"
+          >
+            <RefreshCcw size={14} />
+            {isLoading ? 'Syncing...' : 'Refresh'}
           </button>
+          <span>{lastUpdateAt ? `Updated ${new Date(lastUpdateAt).toLocaleTimeString()}` : 'Awaiting data'}</span>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Main Forecast Chart */}
-        <div className="lg:col-span-2 glass p-8 rounded-3xl border-white/5">
-          <div className="flex items-center justify-between mb-8">
-            <h3 className="text-lg font-bold flex items-center gap-3">
-              <TrendingUp className="text-primary" size={24} />
-              Traffic Volume Forecasting
-            </h3>
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full bg-primary" />
-                <span className="text-[10px] text-slate-400 uppercase font-bold">Actual Flow</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full bg-purple-glow" />
-                <span className="text-[10px] text-slate-400 uppercase font-bold">AI Prediction</span>
-              </div>
-            </div>
-          </div>
-          
-          <div className="h-[400px] w-full min-h-[400px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={forecastData}>
-                <defs>
-                  <linearGradient id="colorActual" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.2}/>
-                    <stop offset="95%" stopColor="#3B82F6" stopOpacity={0}/>
-                  </linearGradient>
-                  <linearGradient id="colorPredicted" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#8B5CF6" stopOpacity={0.2}/>
-                    <stop offset="95%" stopColor="#8B5CF6" stopOpacity={0}/>
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#1F2937" vertical={false} />
-                <XAxis dataKey="time" stroke="#475569" fontSize={12} tickLine={false} axisLine={false} />
-                <YAxis stroke="#475569" fontSize={12} tickLine={false} axisLine={false} />
-                <Tooltip 
-                  contentStyle={{ backgroundColor: '#111827', border: '1px solid #1F2937', borderRadius: '16px' }}
-                />
-                <Area type="monotone" dataKey="actual" stroke="#3B82F6" strokeWidth={3} fillOpacity={1} fill="url(#colorActual)" strokeDasharray="5 5" />
-                <Area type="monotone" dataKey="predicted" stroke="#8B5CF6" strokeWidth={3} fillOpacity={1} fill="url(#colorPredicted)" />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-
-        {/* AI Performance Radar */}
-        <div className="glass p-8 rounded-3xl border-white/5 flex flex-col items-center justify-center space-y-8">
-          <div className="text-center">
-            <h3 className="text-lg font-bold flex items-center justify-center gap-3">
-              <Brain className="text-purple-glow" size={24} />
-              AI System Performance
-            </h3>
-            <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold mt-1">Global Confidence Score: 96.2%</p>
-          </div>
-
-          <div className="h-[300px] w-full min-h-[300px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <RadarChart cx="50%" cy="50%" outerRadius="80%" data={radarData}>
-                <PolarGrid stroke="#1F2937" />
-                <PolarAngleAxis dataKey="subject" tick={{ fill: '#64748b', fontSize: 10 }} />
-                <PolarRadiusAxis hide />
-                <Radar
-                  name="AI Capability"
-                  dataKey="A"
-                  stroke="#8B5CF6"
-                  fill="#8B5CF6"
-                  fillOpacity={0.5}
-                />
-              </RadarChart>
-            </ResponsiveContainer>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4 w-full">
-            <div className="bg-white/5 p-4 rounded-2xl border border-white/5 text-center">
-              <span className="text-[10px] text-slate-500 uppercase font-bold block mb-1">Learning Rate</span>
-              <span className="text-lg font-bold text-white">0.0042</span>
-            </div>
-            <div className="bg-white/5 p-4 rounded-2xl border border-white/5 text-center">
-              <span className="text-[10px] text-slate-500 uppercase font-bold block mb-1">Neurons Active</span>
-              <span className="text-lg font-bold text-white">4.2M</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Analytics Insights Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-        {[
-          { 
-            title: 'Congestion Forecasting', 
-            desc: 'Predicted 12% spike at Silk Board between 17:30 - 18:45 due to local event.',
-            trend: 'up',
-            icon: Target
-          },
-          { 
-            title: 'Risk Analysis', 
-            desc: 'Hebbal Flyover has a 4.2% higher accident probability today due to low visibility.',
-            trend: 'down',
-            icon: AlertTriangle
-          },
-          { 
-            title: 'Behavior Patterns', 
-            desc: 'Commuter patterns shifting 15 mins earlier on Tuesdays. Adjusting signal cycles.',
-            trend: 'stable',
-            icon: Activity
-          }
-        ].map((insight, i) => (
-          <div key={i} className="glass p-6 rounded-3xl border-white/5 relative overflow-hidden group">
-            <div className="flex items-center justify-between mb-4">
-              <div className="p-3 rounded-xl bg-white/5 text-primary group-hover:scale-110 transition-transform">
-                <insight.icon size={20} />
-              </div>
-              {insight.trend === 'up' ? <ArrowUpRight className="text-critical-red" size={20} /> : <ArrowDownRight className="text-traffic-green" size={20} />}
-            </div>
-            <h4 className="text-sm font-bold mb-2">{insight.title}</h4>
-            <p className="text-xs text-slate-400 leading-relaxed mb-6">{insight.desc}</p>
-            <button className="flex items-center gap-2 text-[10px] font-bold text-primary uppercase tracking-widest hover:underline">
-              EXPLORE DATA
-              <ChevronRight size={12} />
-            </button>
-          </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5">
+        {metricCards.map((card) => (
+          <KpiCard key={card.label} label={card.label} value={card.value} icon={card.icon} tone={card.tone} />
         ))}
+      </div>
+
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+        <motion.div layout className="xl:col-span-2">
+          <Card className="h-full">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-base font-medium text-slate-100">Vehicle Composition</h3>
+              <span className="text-xs text-slate-400">{classData.length ? `${classData.length} classes` : 'No detections yet'}</span>
+            </div>
+            <div className="h-[320px] w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={classData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#1F2937" vertical={false} />
+                  <XAxis dataKey="name" stroke="#64748b" fontSize={11} tickLine={false} axisLine={false} />
+                  <YAxis stroke="#64748b" fontSize={11} tickLine={false} axisLine={false} />
+                  <Tooltip contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: '8px' }} itemStyle={{ color: '#3B82F6' }} />
+                  <Bar dataKey="traffic" fill="#3B82F6" radius={[8, 8, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </Card>
+        </motion.div>
+
+        <motion.div layout>
+          <Card className="h-full">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-base font-medium flex items-center gap-2 text-slate-100">
+                <ArrowRightLeft className="text-primary" size={18} />
+                Direction Flow
+              </h3>
+            </div>
+            <div className="space-y-3">
+              {directionData.map((entry) => (
+                <div key={entry.name} className="bg-white/5 p-3 rounded-lg">
+                  <div className="flex items-center justify-between mb-1.5 text-sm">
+                    <span className="text-slate-300 capitalize">{entry.name}</span>
+                    <span className="tabular-nums font-medium">{entry.value}</span>
+                  </div>
+                  <div className="h-2 rounded-full bg-white/5 overflow-hidden">
+                    <div
+                      className="h-full rounded-full bg-gradient-to-r from-primary to-accent-glow"
+                      style={{ width: `${Math.min(entry.value * 12, 100)}%` }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </Card>
+        </motion.div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <motion.div layout>
+          <Card>
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-base font-medium text-slate-100">Live System Notes</h3>
+              <Calendar className="text-slate-400" size={18} />
+            </div>
+            <div className="space-y-4 text-sm text-slate-400">
+              <p>{stats.running ? 'The backend is streaming live updates with websocket push, so this view stays synchronized without heavy polling.' : 'The analyzer is idle. Start Traffic Monitoring to populate live metrics and charts.'}</p>
+              <p>{error ? `Last refresh issue: ${error}` : 'Metric refresh is healthy.'}</p>
+            </div>
+          </Card>
+        </motion.div>
+
+        <motion.div layout>
+          <Card>
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-base font-medium text-slate-100">Connection Snapshot</h3>
+              <span className="text-xs text-slate-400">backend sync</span>
+            </div>
+            <div className="grid grid-cols-2 gap-3 text-sm">
+              <div className="rounded-lg bg-white/5 p-3">
+                <div className="text-slate-500 mb-1">State</div>
+                <div className="font-medium text-slate-100">{stats.running ? 'Live' : 'Idle'}</div>
+              </div>
+              <div className="rounded-lg bg-white/5 p-3">
+                <div className="text-slate-500 mb-1">FPS</div>
+                <div className="font-medium text-slate-100 tabular-nums">{stats.fps?.toFixed(1) ?? '0.0'}</div>
+              </div>
+              <div className="rounded-lg bg-white/5 p-3">
+                <div className="text-slate-500 mb-1">Frames</div>
+                <div className="font-medium text-slate-100 tabular-nums">{stats.processed_frames ?? 0}</div>
+              </div>
+              <div className="rounded-lg bg-white/5 p-3">
+                <div className="text-slate-500 mb-1">Connections</div>
+                <div className="font-medium text-slate-100 tabular-nums">{stats.active_connections ?? 0}</div>
+              </div>
+            </div>
+          </Card>
+        </motion.div>
       </div>
     </div>
   );
